@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Quote, AppView, InspirationResponse } from './types';
 import { BottomNav } from './components/BottomNav';
 import { QuoteCard } from './components/QuoteCard';
@@ -11,10 +11,78 @@ const MOODS = [
   "斯多葛", "浪漫", "混乱", "宁静"
 ];
 
+const DEFAULT_QUOTES: Quote[] = [{
+  id: 'init-1',
+  text: "伟大的工作源于对所做之事的热爱。",
+  author: "史蒂夫·乔布斯",
+  dateAdded: Date.now(),
+  isFavorite: true,
+  tags: ["工作", "热情"]
+}];
+
 const App: React.FC = () => {
-  // --- State ---
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [view, setView] = useState<AppView>(AppView.BOOK);
+  // --- State Initialization with Local Storage ---
+
+  // 1. Quotes: Lazy load from local storage to ensure data is available on first render
+  const [quotes, setQuotes] = useState<Quote[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lumina_quotes');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse quotes", e);
+        }
+      }
+    }
+    return DEFAULT_QUOTES;
+  });
+
+  // 2. Preferences: Load last view and flip mode settings
+  const [view, setView] = useState<AppView>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lumina_prefs');
+      if (saved) {
+        try {
+          return JSON.parse(saved).lastView || AppView.BOOK;
+        } catch (e) {}
+      }
+    }
+    return AppView.BOOK;
+  });
+
+  const [isFlipMode, setIsFlipMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lumina_prefs');
+      if (saved) {
+        try {
+          return JSON.parse(saved).isFlipMode ?? false;
+        } catch (e) {}
+      }
+    }
+    return false;
+  });
+
+  // 3. Reading Progress: Try to find the index of the last read quote ID
+  const [flipIndex, setFlipIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedPrefs = localStorage.getItem('lumina_prefs');
+      const savedQuotes = localStorage.getItem('lumina_quotes');
+      
+      if (savedPrefs && savedQuotes) {
+        try {
+          const { lastReadQuoteId } = JSON.parse(savedPrefs);
+          const quotesArr = JSON.parse(savedQuotes);
+          
+          if (lastReadQuoteId) {
+            const idx = quotesArr.findIndex((q: any) => q.id === lastReadQuoteId);
+            if (idx !== -1) return idx;
+          }
+        } catch (e) {}
+      }
+    }
+    return 0;
+  });
   
   // Write Form State
   const [inputText, setInputText] = useState('');
@@ -23,9 +91,7 @@ const App: React.FC = () => {
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Book View State
-  const [isFlipMode, setIsFlipMode] = useState(false);
-  const [flipIndex, setFlipIndex] = useState(0);
+  // Book View Navigation State
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
 
   // Swipe State
@@ -37,37 +103,35 @@ const App: React.FC = () => {
   const [inspirationResult, setInspirationResult] = useState<InspirationResponse | null>(null);
   const [isLoadingInspiration, setIsLoadingInspiration] = useState(false);
 
-  // --- Effects ---
-  
-  // Load from local storage
-  useEffect(() => {
-    const saved = localStorage.getItem('lumina_quotes');
-    if (saved) {
-      try {
-        setQuotes(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse quotes", e);
-      }
-    } else {
-      // Add a starter quote if empty
-      setQuotes([{
-        id: 'init-1',
-        text: "The only way to do great work is to love what you do.",
-        author: "Steve Jobs",
-        dateAdded: Date.now(),
-        isFavorite: true,
-        tags: ["工作", "热情"]
-      }]);
-    }
-  }, []);
+  // Helper ref to track first render for search effect
+  const isFirstRender = useRef(true);
 
-  // Save to local storage
+  // --- Persistence Effects ---
+
+  // Save Quotes whenever they change
   useEffect(() => {
     localStorage.setItem('lumina_quotes', JSON.stringify(quotes));
   }, [quotes]);
 
-  // Reset flip index when search changes
+  // Save Preferences (View, Mode, Reading Progress)
   useEffect(() => {
+    // Find the ID of the current quote being read to save position accurately
+    const currentQuoteId = quotes[flipIndex]?.id;
+    
+    const prefs = {
+      isFlipMode,
+      lastView: view,
+      lastReadQuoteId: currentQuoteId
+    };
+    localStorage.setItem('lumina_prefs', JSON.stringify(prefs));
+  }, [isFlipMode, view, flipIndex, quotes]);
+
+  // Reset flip index when search changes (but not on initial mount)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     setFlipIndex(0);
     setDirection('next');
   }, [searchTerm]);
@@ -88,7 +152,7 @@ const App: React.FC = () => {
     setInputText('');
     setInputAuthor('');
     setView(AppView.BOOK);
-    setIsFlipMode(false); // Switch back to list view to see new quote
+    setIsFlipMode(false); // Switch to list view to confirm addition
   };
 
   const handleDelete = (id: string) => {
