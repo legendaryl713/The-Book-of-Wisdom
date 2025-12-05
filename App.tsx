@@ -93,6 +93,9 @@ const App: React.FC = () => {
 
   // Book View Navigation State
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  
+  // Animation State: Holds the quote that is animating OUT or sitting behind
+  const [outgoingQuote, setOutgoingQuote] = useState<Quote | null>(null);
 
   // Swipe State
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -134,6 +137,7 @@ const App: React.FC = () => {
     }
     setFlipIndex(0);
     setDirection('next');
+    setOutgoingQuote(null);
   }, [searchTerm]);
 
   // --- Handlers ---
@@ -157,6 +161,7 @@ const App: React.FC = () => {
 
   const handleDelete = (id: string) => {
     setQuotes(quotes.filter(q => q.id !== id));
+    setOutgoingQuote(null); // Reset animation state on delete
     // Adjust flip index if needed
     if (flipIndex >= quotes.length - 2) { 
        setFlipIndex(Math.max(0, flipIndex - 1));
@@ -186,13 +191,21 @@ const App: React.FC = () => {
   };
 
   const handlePrevPage = () => {
+    if (flipIndex <= 0) return;
     setDirection('prev');
-    setFlipIndex(prev => Math.max(0, prev - 1));
+    setOutgoingQuote(quotes[flipIndex]);
+    setFlipIndex(prev => prev - 1);
+    // Clear the outgoing quote after animation finishes
+    setTimeout(() => setOutgoingQuote(null), 800);
   };
 
   const handleNextPage = (max: number) => {
+    if (flipIndex >= max - 1) return;
     setDirection('next');
-    setFlipIndex(prev => Math.min(max - 1, prev + 1));
+    setOutgoingQuote(quotes[flipIndex]);
+    setFlipIndex(prev => prev + 1);
+    // Clear the outgoing quote after animation finishes
+    setTimeout(() => setOutgoingQuote(null), 800);
   };
 
   // --- Swipe Handlers ---
@@ -273,6 +286,8 @@ const App: React.FC = () => {
       q.tags?.some(tag => tag.toLowerCase().includes(lowerSearch))
     );
 
+    const currentQuote = filteredQuotes[flipIndex];
+
     return (
       <div className="max-w-2xl mx-auto p-4 pb-24 min-h-[90vh] flex flex-col">
         <div className="sticky top-0 z-40 bg-midnight/95 backdrop-blur-xl py-4 mb-4 border-b border-white/5">
@@ -324,7 +339,7 @@ const App: React.FC = () => {
           </div>
         ) : (
           <>
-            {isFlipMode ? (
+            {isFlipMode && currentQuote ? (
               // Enhanced 3D Book Flip View with Swipe
               <div 
                 className="flex-1 flex flex-col items-center justify-center animate-fade-in relative px-2 py-6 select-none"
@@ -346,19 +361,69 @@ const App: React.FC = () => {
                   {/* Spine (Left side) */}
                   <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white/10 to-transparent z-20 pointer-events-none rounded-l-sm" />
 
-                  {/* Active Page Wrapper */}
-                  <div className="absolute inset-0 z-10 origin-left transition-all duration-700">
-                     <div 
-                       key={filteredQuotes[flipIndex].id} 
-                       className={`w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page ${direction === 'next' ? 'animate-turn-next' : 'animate-turn-prev'}`}
-                     >
-                       <QuoteCard 
-                         quote={filteredQuotes[flipIndex]} 
-                         onDelete={handleDelete}
-                         onUpdate={handleUpdate}
-                         variant="book"
-                       />
-                     </div>
+                  {/* Active Pages Wrapper */}
+                  <div className="absolute inset-0 z-10 origin-left transform-style-3d">
+                    
+                    {/* PREV ACTION: New Page enters from Left (Top Layer), Old page stays behind (Bottom Layer) */}
+                    {direction === 'prev' && outgoingQuote && (
+                       <>
+                         {/* Bottom Layer: Old Page (Outgoing) */}
+                         <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                            <QuoteCard 
+                              quote={outgoingQuote} 
+                              onDelete={handleDelete}
+                              onUpdate={handleUpdate}
+                              variant="book"
+                            />
+                         </div>
+                         {/* Top Layer: New Page (Incoming) */}
+                         <div className="absolute inset-0 z-20 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page animate-flip-in-right origin-left">
+                            <QuoteCard 
+                              quote={currentQuote} 
+                              onDelete={handleDelete}
+                              onUpdate={handleUpdate}
+                              variant="book"
+                            />
+                         </div>
+                       </>
+                    )}
+
+                    {/* NEXT ACTION: Old Page leaves to Left (Top Layer), New page stays behind (Bottom Layer) */}
+                    {direction === 'next' && outgoingQuote && (
+                       <>
+                         {/* Bottom Layer: New Page (Incoming) */}
+                         <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                            <QuoteCard 
+                              quote={currentQuote} 
+                              onDelete={handleDelete}
+                              onUpdate={handleUpdate}
+                              variant="book"
+                            />
+                         </div>
+                         {/* Top Layer: Old Page (Outgoing) */}
+                         <div className="absolute inset-0 z-20 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page animate-flip-out-left origin-left">
+                            <QuoteCard 
+                              quote={outgoingQuote} 
+                              onDelete={handleDelete}
+                              onUpdate={handleUpdate}
+                              variant="book"
+                            />
+                         </div>
+                       </>
+                    )}
+                    
+                    {/* Static State (No animation) */}
+                    {!outgoingQuote && (
+                       <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                          <QuoteCard 
+                            quote={currentQuote} 
+                            onDelete={handleDelete}
+                            onUpdate={handleUpdate}
+                            variant="book"
+                          />
+                       </div>
+                    )}
+
                   </div>
 
                   {/* Navigation Click Areas (for mouse users) */}
@@ -480,6 +545,13 @@ const App: React.FC = () => {
 
       <BottomNav currentView={view} setView={setView} />
       
+      {/* Watermark Signature */}
+      <div className="fixed bottom-24 left-0 w-full text-center pointer-events-none z-0">
+        <p className="font-display text-[9px] text-gold/20 tracking-[0.3em] uppercase">
+          Developed by Junzhe Zhang
+        </p>
+      </div>
+
       {/* Floating Action Button for Quick Add on Book View */}
       {view === AppView.BOOK && (
         <button
