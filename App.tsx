@@ -402,13 +402,13 @@ const App: React.FC = () => {
         <p className="text-slate-500 dark:text-slate-400 font-sans text-sm">将智慧永恒珍藏。</p>
       </div>
 
-      <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl backdrop-blur-sm transition-colors duration-500">
+      <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl backdrop-blur-sm transition-all duration-500 focus-within:border-gold/40 focus-within:ring-1 focus-within:ring-gold/20">
         <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">语录内容</label>
         <textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="写下深刻的文字..."
-          className="w-full h-40 bg-transparent text-xl font-serif text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 border-none focus:ring-0 resize-none p-0 leading-relaxed transition-colors"
+          className="w-full h-40 bg-transparent text-xl font-serif text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 border-none focus:ring-0 focus:outline-none resize-none p-0 leading-relaxed transition-colors"
           autoFocus
         />
         
@@ -420,7 +420,7 @@ const App: React.FC = () => {
           value={inputAuthor}
           onChange={(e) => setInputAuthor(e.target.value)}
           placeholder="是谁说的？"
-          className="w-full bg-transparent font-sans text-gold border-none focus:ring-0 p-0 placeholder-slate-400 dark:placeholder-slate-600"
+          className="w-full bg-transparent font-sans text-gold border-none focus:ring-0 focus:outline-none p-0 placeholder-slate-400 dark:placeholder-slate-600"
         />
       </div>
 
