@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Lumina Quotes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Playfair Display"', 'serif'],
+              sans: ['"Lato"', 'sans-serif'],
+              display: ['"Cinzel"', 'serif'],
+            },
+            colors: {
+              paper: '#fdfbf7',
+              ink: '#2d2a2e',
+              gold: '#c5a059',
+              'gold-light': '#e5c07b',
+              midnight: '#0f172a',
+              'book-cover': '#2a1d1d',
+              'book-page': '#1e293b', 
+            },
+            boxShadow: {
+              'book': '10px 10px 30px rgba(0,0,0,0.5), -2px 0 5px rgba(255,255,255,0.05) inset',
+              'page': '5px 0 15px rgba(0,0,0,0.3)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom Scrollbar for a premium feel */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #c5a059; 
+      }
+      body {
+        background-color: #0f172a;
+        color: #fdfbf7;
+        overflow-x: hidden;
+      }
+
+      /* Realistic Book Styles */
+      .perspective-2000 {
+        perspective: 2000px;
+      }
+
+      .spine-gradient {
+        background: linear-gradient(to right, 
+          rgba(0,0,0,0.4) 0%, 
+          rgba(0,0,0,0.1) 20%, 
+          transparent 100%);
+      }
+
+      .page-texture {
+        background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      }
+
+      /* Animations */
+      .animate-turn-next {
+        animation: bookTurnNext 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        transform-origin: left center;
+      }
+      
+      .animate-turn-prev {
+        animation: bookTurnPrev 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        transform-origin: left center; /* Hinged on spine */
+      }
+
+      .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+      .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+      .animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
+
+      /* Simulate a page landing from the right (opening the next page) */
+      @keyframes bookTurnNext {
+        0% { 
+          opacity: 0.5;
+          transform: rotateY(90deg) scale(0.95);
+        }
+        100% { 
+          opacity: 1;
+          transform: rotateY(0deg) scale(1);
+        }
+      }
+
+      /* Simulate a page landing from the left (flipping back a page) */
+      @keyframes bookTurnPrev {
+        0% { 
+          opacity: 0.5;
+          transform: rotateY(-90deg) scale(0.95); 
+        }
+        100% { 
+          opacity: 1;
+          transform: rotateY(0deg) scale(1); 
+        }
+      }
+
+      @keyframes fadeIn { 
+        from { opacity: 0; } 
+        to { opacity: 1; } 
+      }
+      
+      @keyframes fadeInUp { 
+        from { opacity: 0; transform: translateY(20px); } 
+        to { opacity: 1; transform: translateY(0); } 
+      }
+
+      @keyframes scaleIn { 
+        from { opacity: 0; transform: scale(0.9); } 
+        to { opacity: 1; transform: scale(1); } 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
