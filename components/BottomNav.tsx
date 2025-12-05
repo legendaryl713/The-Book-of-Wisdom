@@ -15,7 +15,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, setView }) =>
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 w-full bg-midnight/90 backdrop-blur-md border-t border-white/5 z-50 pb-safe">
+    <div className="fixed bottom-0 left-0 w-full bg-paper/90 dark:bg-midnight/90 backdrop-blur-md border-t border-slate-200 dark:border-white/5 z-50 pb-safe transition-colors duration-500">
       <div className="flex justify-around items-center max-w-2xl mx-auto">
         {navItems.map((item) => {
           const isActive = currentView === item.id;
@@ -24,7 +24,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, setView }) =>
               key={item.id}
               onClick={() => setView(item.id)}
               className={`flex flex-col items-center justify-center w-full py-4 transition-all duration-300 ${
-                isActive ? 'text-gold' : 'text-slate-500 hover:text-slate-300'
+                isActive ? 'text-gold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               <div className={`p-1.5 rounded-full transition-all duration-500 ${isActive ? 'bg-gold/10 scale-110 mb-1' : 'mb-1'}`}>

@@ -3,7 +3,7 @@ import { Quote, AppView, InspirationResponse } from './types';
 import { BottomNav } from './components/BottomNav';
 import { QuoteCard } from './components/QuoteCard';
 import { Button } from './components/Button';
-import { Plus, Search, Sparkles, Feather, Book, ChevronLeft, ChevronRight, LayoutGrid, BookOpenText, Download, AlertCircle } from 'lucide-react';
+import { Plus, Search, Sparkles, Feather, Book, ChevronLeft, ChevronRight, LayoutGrid, BookOpenText, Download, AlertCircle, Moon, Sun } from 'lucide-react';
 import { getInspiration } from './services/geminiService';
 
 const MOODS = [
@@ -23,7 +23,7 @@ const DEFAULT_QUOTES: Quote[] = [{
 const App: React.FC = () => {
   // --- State Initialization with Local Storage ---
 
-  // 1. Quotes: Lazy load from local storage to ensure data is available on first render
+  // 1. Quotes: Lazy load from local storage
   const [quotes, setQuotes] = useState<Quote[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('lumina_quotes');
@@ -38,7 +38,7 @@ const App: React.FC = () => {
     return DEFAULT_QUOTES;
   });
 
-  // 2. Preferences: Load last view and flip mode settings
+  // 2. Preferences: Load last view, flip mode settings, and THEME
   const [view, setView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('lumina_prefs');
@@ -63,7 +63,20 @@ const App: React.FC = () => {
     return false;
   });
 
-  // 3. Reading Progress: Try to find the index of the last read quote ID
+  // Dark Mode State (Default to false = Light Mode)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lumina_prefs');
+      if (saved) {
+        try {
+          return JSON.parse(saved).isDarkMode ?? false; // Default Light Mode
+        } catch (e) {}
+      }
+    }
+    return false;
+  });
+
+  // 3. Reading Progress
   const [flipIndex, setFlipIndex] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedPrefs = localStorage.getItem('lumina_prefs');
@@ -94,7 +107,7 @@ const App: React.FC = () => {
   // Book View Navigation State
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   
-  // Animation State: Holds the quote that is animating OUT or sitting behind
+  // Animation State
   const [outgoingQuote, setOutgoingQuote] = useState<Quote | null>(null);
 
   // Swipe State
@@ -114,25 +127,33 @@ const App: React.FC = () => {
 
   // --- Persistence Effects ---
 
-  // Save Quotes whenever they change
+  // Save Quotes
   useEffect(() => {
     localStorage.setItem('lumina_quotes', JSON.stringify(quotes));
   }, [quotes]);
 
-  // Save Preferences (View, Mode, Reading Progress)
+  // Save Preferences
   useEffect(() => {
-    // Find the ID of the current quote being read to save position accurately
     const currentQuoteId = quotes[flipIndex]?.id;
-    
     const prefs = {
       isFlipMode,
       lastView: view,
-      lastReadQuoteId: currentQuoteId
+      lastReadQuoteId: currentQuoteId,
+      isDarkMode
     };
     localStorage.setItem('lumina_prefs', JSON.stringify(prefs));
-  }, [isFlipMode, view, flipIndex, quotes]);
+  }, [isFlipMode, view, flipIndex, quotes, isDarkMode]);
 
-  // Reset flip index when search changes (but not on initial mount)
+  // Apply Theme
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  // Reset flip index when search changes
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -159,13 +180,12 @@ const App: React.FC = () => {
     setInputText('');
     setInputAuthor('');
     setView(AppView.BOOK);
-    setIsFlipMode(false); // Switch to list view to confirm addition
+    setIsFlipMode(false);
   };
 
   const handleDelete = (id: string) => {
     setQuotes(quotes.filter(q => q.id !== id));
-    setOutgoingQuote(null); // Reset animation state on delete
-    // Adjust flip index if needed
+    setOutgoingQuote(null);
     if (flipIndex >= quotes.length - 2) { 
        setFlipIndex(Math.max(0, flipIndex - 1));
     }
@@ -197,10 +217,13 @@ const App: React.FC = () => {
     setShowExportConfirm(true);
   };
 
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   const executePDFExport = () => {
     setShowExportConfirm(false);
     
-    // Create a new window for printing
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert("请允许弹出窗口以导出 PDF");
@@ -213,7 +236,7 @@ const App: React.FC = () => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Lumina 语录导出 - ${today}</title>
+        <title>智慧之书语录导出 - ${today}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap');
           body {
@@ -290,7 +313,7 @@ const App: React.FC = () => {
       </head>
       <body>
         <div class="header">
-          <h1>Lumina 语录集</h1>
+          <h1>智慧之书</h1>
           <p>导出日期: ${today} | 共 ${quotes.length} 条珍藏</p>
         </div>
         
@@ -312,14 +335,12 @@ const App: React.FC = () => {
         </div>
 
         <div class="footer">
-          Developed by Junzhe Zhang with Lumina App
+          Developed by Junzhe with Book of Wisdom
         </div>
 
         <script>
           window.onload = function() {
             window.print();
-            // Optional: Close window after print dialog is closed (some browsers block this)
-            // window.onafterprint = function() { window.close(); };
           }
         </script>
       </body>
@@ -335,7 +356,6 @@ const App: React.FC = () => {
     setDirection('prev');
     setOutgoingQuote(quotes[flipIndex]);
     setFlipIndex(prev => prev - 1);
-    // Clear the outgoing quote after animation finishes (duration matches CSS 1.2s)
     setTimeout(() => setOutgoingQuote(null), 1200);
   };
 
@@ -344,7 +364,6 @@ const App: React.FC = () => {
     setDirection('next');
     setOutgoingQuote(quotes[flipIndex]);
     setFlipIndex(prev => prev + 1);
-    // Clear the outgoing quote after animation finishes
     setTimeout(() => setOutgoingQuote(null), 1200);
   };
 
@@ -380,28 +399,28 @@ const App: React.FC = () => {
     <div className="flex flex-col h-full max-w-lg mx-auto p-6 animate-fade-in-up">
       <div className="text-center mb-8">
         <h2 className="font-display text-3xl text-gold mb-2">新篇章</h2>
-        <p className="text-slate-400 font-sans text-sm">将智慧永恒珍藏。</p>
+        <p className="text-slate-500 dark:text-slate-400 font-sans text-sm">将智慧永恒珍藏。</p>
       </div>
 
-      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-sm">
-        <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">语录内容</label>
+      <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl backdrop-blur-sm transition-colors duration-500">
+        <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">语录内容</label>
         <textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="写下深刻的文字..."
-          className="w-full h-40 bg-transparent text-xl font-serif text-slate-200 placeholder-slate-600 border-none focus:ring-0 resize-none p-0 leading-relaxed"
+          className="w-full h-40 bg-transparent text-xl font-serif text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 border-none focus:ring-0 resize-none p-0 leading-relaxed transition-colors"
           autoFocus
         />
         
-        <div className="h-px w-full bg-slate-700 my-4" />
+        <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-4 transition-colors" />
 
-        <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">作者</label>
+        <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">作者</label>
         <input
           type="text"
           value={inputAuthor}
           onChange={(e) => setInputAuthor(e.target.value)}
           placeholder="是谁说的？"
-          className="w-full bg-transparent font-sans text-gold border-none focus:ring-0 p-0 placeholder-slate-600"
+          className="w-full bg-transparent font-sans text-gold border-none focus:ring-0 p-0 placeholder-slate-400 dark:placeholder-slate-600"
         />
       </div>
 
@@ -430,35 +449,44 @@ const App: React.FC = () => {
 
     return (
       <div className="max-w-2xl mx-auto p-4 pb-24 min-h-[90vh] flex flex-col">
-        <div className="sticky top-0 z-40 bg-midnight/95 backdrop-blur-xl py-4 mb-4 border-b border-white/5">
+        {/* Header */}
+        <div className="sticky top-0 z-40 bg-paper/95 dark:bg-midnight/95 backdrop-blur-xl py-4 mb-4 border-b border-slate-200 dark:border-white/5 transition-colors duration-500">
           <div className="flex justify-between items-center mb-4 px-2">
             <div>
-              <h1 className="font-display text-3xl text-gold">语录集</h1>
-              <p className="text-slate-400 text-[10px] tracking-widest uppercase mt-1">
+              <h1 className="font-display text-3xl text-gold">智慧之书</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-[10px] tracking-widest uppercase mt-1">
                 已收录 {quotes.length} {quotes.length === 1 ? '条' : '条'} 智慧
               </p>
             </div>
             
             <div className="flex items-center gap-2">
               <button
+                onClick={toggleTheme}
+                className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-gold hover:border-gold/30 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                title={isDarkMode ? "切换亮色模式" : "切换夜间模式"}
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
+              <button
                 onClick={handleExportClick}
-                className="p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-gold hover:border-gold/30 hover:bg-slate-700 transition-all shadow-sm"
+                className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-gold hover:border-gold/30 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
                 title="导出 PDF"
               >
                 <Download size={18} />
               </button>
 
-              <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+              <div className="flex bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
                 <button 
                   onClick={() => setIsFlipMode(false)}
-                  className={`p-2 rounded-md transition-all ${!isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`p-2 rounded-md transition-all ${!isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
                   title="列表视图"
                 >
                   <LayoutGrid size={16} />
                 </button>
                 <button 
                   onClick={() => setIsFlipMode(true)}
-                  className={`p-2 rounded-md transition-all ${isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`p-2 rounded-md transition-all ${isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
                   title="翻页视图"
                 >
                   <BookOpenText size={16} />
@@ -468,19 +496,19 @@ const App: React.FC = () => {
           </div>
 
           <div className="relative group mx-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-gold transition-colors" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-gold transition-colors" size={16} />
             <input 
               type="text" 
               placeholder="搜索智慧、作者或标签..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-9 pr-4 text-sm text-slate-200 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20 transition-all font-sans"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-9 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20 transition-all font-sans"
             />
           </div>
         </div>
 
         {filteredQuotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-slate-600">
+          <div className="flex flex-col items-center justify-center flex-1 text-slate-400 dark:text-slate-600">
             <Feather size={48} className="mb-4 opacity-20" />
             <p className="font-serif italic text-lg">此处空空如也...</p>
             <button onClick={() => setView(AppView.WRITE)} className="mt-4 text-gold hover:underline text-sm font-bold uppercase tracking-widest">
@@ -490,7 +518,7 @@ const App: React.FC = () => {
         ) : (
           <>
             {isFlipMode && currentQuote ? (
-              // Enhanced 3D Book Flip View with Swipe
+              // Enhanced 3D Book Flip View
               <div 
                 className="flex-1 flex flex-col items-center justify-center animate-fade-in relative px-2 py-6 select-none"
                 onTouchStart={onTouchStart}
@@ -501,25 +529,24 @@ const App: React.FC = () => {
                 {/* Book Container */}
                 <div className="perspective-2000 relative w-full max-w-[500px] aspect-[4/5] md:aspect-[3/4]">
                   
-                  {/* Book Back Cover (Leather texture) */}
+                  {/* Book Back Cover */}
                   <div className="absolute inset-0 bg-book-cover rounded-r-2xl shadow-book transform translate-x-3 translate-y-3 z-0" />
                   
-                  {/* Fake Page Stack (Right side thickness) */}
-                  <div className="absolute top-2 bottom-2 right-1 w-4 bg-slate-300 rounded-r-sm z-0 transform translate-x-1" />
-                  <div className="absolute top-3 bottom-3 right-2 w-4 bg-slate-400 rounded-r-sm z-0 transform translate-x-1" />
+                  {/* Fake Page Stack */}
+                  <div className="absolute top-2 bottom-2 right-1 w-4 bg-slate-200 dark:bg-slate-300 rounded-r-sm z-0 transform translate-x-1 transition-colors" />
+                  <div className="absolute top-3 bottom-3 right-2 w-4 bg-slate-300 dark:bg-slate-400 rounded-r-sm z-0 transform translate-x-1 transition-colors" />
 
-                  {/* Spine (Left side) */}
-                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white/10 to-transparent z-20 pointer-events-none rounded-l-sm" />
+                  {/* Spine */}
+                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/10 dark:from-white/10 to-transparent z-20 pointer-events-none rounded-l-sm" />
 
                   {/* Active Pages Wrapper */}
                   <div className="absolute inset-0 z-10 origin-left transform-style-3d">
                     
-                    {/* PREV ACTION: We are going BACKWARDS. */}
-                    {/* Incoming Quote (New) flips from Left to Right. Outgoing Quote (Old) is covered. */}
+                    {/* PREV ACTION (Going Back) */}
                     {direction === 'prev' && outgoingQuote && (
                        <>
-                         {/* Bottom Layer: Old Page (Outgoing) - Static, will be covered */}
-                         <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                         {/* Bottom Layer: Old Page (Outgoing) */}
+                         <div className="absolute inset-0 z-10 w-full h-full bg-paper dark:bg-book-page rounded-r-lg overflow-hidden shadow-page transition-colors duration-500">
                             <QuoteCard 
                               quote={outgoingQuote} 
                               onDelete={handleDelete}
@@ -528,10 +555,9 @@ const App: React.FC = () => {
                             />
                          </div>
                          
-                         {/* Top Layer: New Page (Incoming) - Flips IN from Left */}
+                         {/* Top Layer: New Page (Incoming) */}
                          <div className="absolute inset-0 z-20 w-full h-full transform-style-3d animate-flip-in-right origin-left">
-                            {/* Front Face (Content) */}
-                            <div className="absolute inset-0 backface-hidden z-20 bg-book-page rounded-r-lg overflow-hidden">
+                            <div className="absolute inset-0 backface-hidden z-20 bg-paper dark:bg-book-page rounded-r-lg overflow-hidden transition-colors duration-500">
                               <QuoteCard 
                                 quote={currentQuote} 
                                 onDelete={handleDelete}
@@ -539,18 +565,16 @@ const App: React.FC = () => {
                                 variant="book"
                               />
                             </div>
-                            {/* Back Face (Texture) */}
                             <div className="absolute inset-0 backface-hidden z-10 page-back-face rounded-l-lg page-texture" />
                          </div>
                        </>
                     )}
 
-                    {/* NEXT ACTION: We are going FORWARDS. */}
-                    {/* Incoming Quote (New) is revealed. Outgoing Quote (Old) flips from Right to Left. */}
+                    {/* NEXT ACTION (Going Forward) */}
                     {direction === 'next' && outgoingQuote && (
                        <>
-                         {/* Bottom Layer: New Page (Incoming) - Static, waiting to be revealed */}
-                         <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                         {/* Bottom Layer: New Page (Incoming) */}
+                         <div className="absolute inset-0 z-10 w-full h-full bg-paper dark:bg-book-page rounded-r-lg overflow-hidden shadow-page transition-colors duration-500">
                             <QuoteCard 
                               quote={currentQuote} 
                               onDelete={handleDelete}
@@ -559,10 +583,9 @@ const App: React.FC = () => {
                             />
                          </div>
                          
-                         {/* Top Layer: Old Page (Outgoing) - Flips OUT to Left */}
+                         {/* Top Layer: Old Page (Outgoing) */}
                          <div className="absolute inset-0 z-20 w-full h-full transform-style-3d animate-flip-out-left origin-left">
-                            {/* Front Face (Content) */}
-                            <div className="absolute inset-0 backface-hidden z-20 bg-book-page rounded-r-lg overflow-hidden">
+                            <div className="absolute inset-0 backface-hidden z-20 bg-paper dark:bg-book-page rounded-r-lg overflow-hidden transition-colors duration-500">
                                <QuoteCard 
                                  quote={outgoingQuote} 
                                  onDelete={handleDelete}
@@ -570,15 +593,14 @@ const App: React.FC = () => {
                                  variant="book"
                                />
                             </div>
-                            {/* Back Face (Texture) */}
                             <div className="absolute inset-0 backface-hidden z-10 page-back-face rounded-l-lg page-texture" />
                          </div>
                        </>
                     )}
                     
-                    {/* Static State (No animation) */}
+                    {/* Static State */}
                     {!outgoingQuote && (
-                       <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
+                       <div className="absolute inset-0 z-10 w-full h-full bg-paper dark:bg-book-page rounded-r-lg overflow-hidden shadow-page transition-colors duration-500">
                           <QuoteCard 
                             quote={currentQuote} 
                             onDelete={handleDelete}
@@ -590,9 +612,9 @@ const App: React.FC = () => {
 
                   </div>
 
-                  {/* Navigation Click Areas (for mouse users) */}
-                  <div className="absolute inset-y-0 left-0 w-16 z-30 cursor-pointer hover:bg-white/5 transition-colors hidden md:block" onClick={handlePrevPage} />
-                  <div className="absolute inset-y-0 right-0 w-16 z-30 cursor-pointer hover:bg-white/5 transition-colors hidden md:block" onClick={() => handleNextPage(filteredQuotes.length)} />
+                  {/* Navigation Click Areas */}
+                  <div className="absolute inset-y-0 left-0 w-16 z-30 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors hidden md:block" onClick={handlePrevPage} />
+                  <div className="absolute inset-y-0 right-0 w-16 z-30 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors hidden md:block" onClick={() => handleNextPage(filteredQuotes.length)} />
 
                 </div>
 
@@ -601,20 +623,20 @@ const App: React.FC = () => {
                   <button 
                     onClick={handlePrevPage} 
                     disabled={flipIndex === 0}
-                    className="p-3 rounded-full bg-slate-800 text-gold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors shadow-lg flex items-center gap-2"
+                    className="p-3 rounded-full bg-white dark:bg-slate-800 text-gold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-lg flex items-center gap-2"
                   >
                     <ChevronLeft size={20} />
                     <span className="text-xs font-bold uppercase tracking-wider hidden md:block">上一页</span>
                   </button>
                   
-                  <div className="font-display text-gold/50 tracking-widest text-sm bg-slate-800/50 px-4 py-1.5 rounded-full border border-white/5">
+                  <div className="font-display text-slate-500 dark:text-gold/50 tracking-widest text-sm bg-white/50 dark:bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-200 dark:border-white/5">
                     第 {flipIndex + 1} / {filteredQuotes.length} 页
                   </div>
 
                   <button 
                     onClick={() => handleNextPage(filteredQuotes.length)} 
                     disabled={flipIndex >= filteredQuotes.length - 1}
-                    className="p-3 rounded-full bg-slate-800 text-gold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors shadow-lg flex items-center gap-2"
+                    className="p-3 rounded-full bg-white dark:bg-slate-800 text-gold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-lg flex items-center gap-2"
                   >
                     <span className="text-xs font-bold uppercase tracking-wider hidden md:block">下一页</span>
                     <ChevronRight size={20} />
@@ -644,10 +666,10 @@ const App: React.FC = () => {
   const renderInspireView = () => (
     <div className="max-w-xl mx-auto p-6 flex flex-col items-center justify-center min-h-[80vh] animate-fade-in">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-purple-900 to-slate-900 border border-purple-500/30 mb-4 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
-          <Sparkles className="text-purple-400" size={32} />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-purple-100 to-white dark:from-purple-900 dark:to-slate-900 border border-purple-200 dark:border-purple-500/30 mb-4 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
+          <Sparkles className="text-purple-500 dark:text-purple-400" size={32} />
         </div>
-        <h2 className="font-display text-3xl text-slate-100">缪斯的低语</h2>
+        <h2 className="font-display text-3xl text-slate-800 dark:text-slate-100">缪斯的低语</h2>
         <p className="text-slate-500 mt-2 font-serif italic">"当你找不到词句时，让词句来找你。"</p>
       </div>
 
@@ -657,9 +679,9 @@ const App: React.FC = () => {
             <button
               key={mood}
               onClick={() => handleInspire(mood)}
-              className="p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 hover:border-gold/30 rounded-xl text-center transition-all duration-300 group"
+              className="p-4 bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 hover:border-gold/30 rounded-xl text-center transition-all duration-300 group shadow-sm"
             >
-              <span className="font-display text-sm text-slate-300 group-hover:text-gold uppercase tracking-wider">{mood}</span>
+              <span className="font-display text-sm text-slate-600 dark:text-slate-300 group-hover:text-gold uppercase tracking-wider">{mood}</span>
             </button>
           ))}
         </div>
@@ -673,10 +695,10 @@ const App: React.FC = () => {
       )}
 
       {inspirationResult && (
-        <div className="w-full bg-slate-900 border border-gold/20 p-8 rounded-2xl shadow-2xl relative overflow-hidden animate-scale-in">
+        <div className="w-full bg-white dark:bg-slate-900 border border-gold/20 p-8 rounded-2xl shadow-xl relative overflow-hidden animate-scale-in">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-50" />
           
-          <p className="font-serif text-2xl md:text-3xl text-slate-100 text-center leading-relaxed mb-6">
+          <p className="font-serif text-2xl md:text-3xl text-slate-800 dark:text-slate-100 text-center leading-relaxed mb-6">
             "{inspirationResult.text}"
           </p>
           <p className="text-center text-gold font-display uppercase tracking-widest text-sm mb-8">
@@ -697,19 +719,19 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-midnight text-slate-200 pb-20 selection:bg-gold/30 selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-paper dark:bg-midnight text-ink dark:text-slate-200 pb-20 selection:bg-gold/30 selection:text-gold overflow-x-hidden transition-colors duration-500">
       {/* Background Ambience */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-800 via-midnight to-midnight" />
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-10 dark:opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-200 via-paper to-paper dark:from-slate-800 dark:via-midnight dark:to-midnight" />
       
       {/* Export Confirmation Modal */}
       {showExportConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-midnight/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-gold/20 rounded-xl p-6 max-w-sm w-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-scale-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-midnight/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-gold/20 rounded-xl p-6 max-w-sm w-full shadow-2xl transform animate-scale-in">
              <div className="flex items-center gap-3 mb-4 text-gold">
                <AlertCircle size={24} />
                <h3 className="font-display text-xl">确认导出</h3>
              </div>
-             <p className="text-slate-300 mb-6 font-sans leading-relaxed">
+             <p className="text-slate-600 dark:text-slate-300 mb-6 font-sans leading-relaxed">
                您确定要将语录集导出为 PDF 文件吗？系统将生成打印预览，请在打印窗口中选择 <strong>"另存为 PDF"</strong>。
              </p>
              <div className="flex gap-3 justify-end">
@@ -734,8 +756,8 @@ const App: React.FC = () => {
       
       {/* Watermark Signature */}
       <div className="fixed bottom-24 left-0 w-full text-center pointer-events-none z-0">
-        <p className="font-display text-[9px] text-gold/20 tracking-[0.3em] uppercase">
-          Developed by Junzhe Zhang
+        <p className="font-display text-[9px] text-slate-300 dark:text-gold/20 tracking-[0.3em] uppercase">
+          Developed by Junzhe
         </p>
       </div>
 
