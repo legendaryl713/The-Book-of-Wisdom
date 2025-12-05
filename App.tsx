@@ -3,7 +3,7 @@ import { Quote, AppView, InspirationResponse } from './types';
 import { BottomNav } from './components/BottomNav';
 import { QuoteCard } from './components/QuoteCard';
 import { Button } from './components/Button';
-import { Plus, Search, Sparkles, Feather, Book, ChevronLeft, ChevronRight, LayoutGrid, BookOpenText } from 'lucide-react';
+import { Plus, Search, Sparkles, Feather, Book, ChevronLeft, ChevronRight, LayoutGrid, BookOpenText, Download, AlertCircle } from 'lucide-react';
 import { getInspiration } from './services/geminiService';
 
 const MOODS = [
@@ -105,6 +105,9 @@ const App: React.FC = () => {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [inspirationResult, setInspirationResult] = useState<InspirationResponse | null>(null);
   const [isLoadingInspiration, setIsLoadingInspiration] = useState(false);
+  
+  // Export State
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
 
   // Helper ref to track first render for search effect
   const isFirstRender = useRef(true);
@@ -190,13 +193,150 @@ const App: React.FC = () => {
     }
   };
 
+  const handleExportClick = () => {
+    setShowExportConfirm(true);
+  };
+
+  const executePDFExport = () => {
+    setShowExportConfirm(false);
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("请允许弹出窗口以导出 PDF");
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Lumina 语录导出 - ${today}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap');
+          body {
+            font-family: "Songti SC", "Noto Serif SC", serif;
+            padding: 40px;
+            color: #1a1a1a;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #c5a059;
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+          }
+          .header h1 {
+            font-size: 32px;
+            margin: 0 0 10px 0;
+            color: #2a1d1d;
+          }
+          .header p {
+            font-size: 14px;
+            color: #666;
+            margin: 0;
+          }
+          .quote-item {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #fcfbf9;
+            border-left: 4px solid #c5a059;
+            page-break-inside: avoid;
+          }
+          .quote-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #333;
+          }
+          .quote-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+          }
+          .quote-author {
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #c5a059;
+          }
+          .tags {
+            margin-top: 8px;
+          }
+          .tag {
+            display: inline-block;
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-right: 5px;
+            color: #555;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 10px;
+            color: #999;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Lumina 语录集</h1>
+          <p>导出日期: ${today} | 共 ${quotes.length} 条珍藏</p>
+        </div>
+        
+        <div class="content">
+          ${quotes.map(q => `
+            <div class="quote-item">
+              <div class="quote-text">"${q.text}"</div>
+              <div class="quote-meta">
+                <span class="quote-author">— ${q.author}</span>
+                <span>${new Date(q.dateAdded).toLocaleDateString('zh-CN')}</span>
+              </div>
+              ${q.tags && q.tags.length > 0 ? `
+                <div class="tags">
+                  ${q.tags.map(t => `<span class="tag">#${t}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="footer">
+          Developed by Junzhe Zhang with Lumina App
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            // Optional: Close window after print dialog is closed (some browsers block this)
+            // window.onafterprint = function() { window.close(); };
+          }
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const handlePrevPage = () => {
     if (flipIndex <= 0) return;
     setDirection('prev');
     setOutgoingQuote(quotes[flipIndex]);
     setFlipIndex(prev => prev - 1);
-    // Clear the outgoing quote after animation finishes
-    setTimeout(() => setOutgoingQuote(null), 800);
+    // Clear the outgoing quote after animation finishes (duration matches CSS 1.2s)
+    setTimeout(() => setOutgoingQuote(null), 1200);
   };
 
   const handleNextPage = (max: number) => {
@@ -205,7 +345,7 @@ const App: React.FC = () => {
     setOutgoingQuote(quotes[flipIndex]);
     setFlipIndex(prev => prev + 1);
     // Clear the outgoing quote after animation finishes
-    setTimeout(() => setOutgoingQuote(null), 800);
+    setTimeout(() => setOutgoingQuote(null), 1200);
   };
 
   // --- Swipe Handlers ---
@@ -299,21 +439,31 @@ const App: React.FC = () => {
               </p>
             </div>
             
-            <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
-              <button 
-                onClick={() => setIsFlipMode(false)}
-                className={`p-2 rounded-md transition-all ${!isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
-                title="列表视图"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportClick}
+                className="p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-gold hover:border-gold/30 hover:bg-slate-700 transition-all shadow-sm"
+                title="导出 PDF"
               >
-                <LayoutGrid size={16} />
+                <Download size={18} />
               </button>
-              <button 
-                onClick={() => setIsFlipMode(true)}
-                className={`p-2 rounded-md transition-all ${isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
-                title="翻页视图"
-              >
-                <BookOpenText size={16} />
-              </button>
+
+              <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <button 
+                  onClick={() => setIsFlipMode(false)}
+                  className={`p-2 rounded-md transition-all ${!isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                  title="列表视图"
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button 
+                  onClick={() => setIsFlipMode(true)}
+                  className={`p-2 rounded-md transition-all ${isFlipMode ? 'bg-gold text-midnight shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+                  title="翻页视图"
+                >
+                  <BookOpenText size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -364,10 +514,11 @@ const App: React.FC = () => {
                   {/* Active Pages Wrapper */}
                   <div className="absolute inset-0 z-10 origin-left transform-style-3d">
                     
-                    {/* PREV ACTION: New Page enters from Left (Top Layer), Old page stays behind (Bottom Layer) */}
+                    {/* PREV ACTION: We are going BACKWARDS. */}
+                    {/* Incoming Quote (New) flips from Left to Right. Outgoing Quote (Old) is covered. */}
                     {direction === 'prev' && outgoingQuote && (
                        <>
-                         {/* Bottom Layer: Old Page (Outgoing) */}
+                         {/* Bottom Layer: Old Page (Outgoing) - Static, will be covered */}
                          <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
                             <QuoteCard 
                               quote={outgoingQuote} 
@@ -376,22 +527,29 @@ const App: React.FC = () => {
                               variant="book"
                             />
                          </div>
-                         {/* Top Layer: New Page (Incoming) */}
-                         <div className="absolute inset-0 z-20 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page animate-flip-in-right origin-left">
-                            <QuoteCard 
-                              quote={currentQuote} 
-                              onDelete={handleDelete}
-                              onUpdate={handleUpdate}
-                              variant="book"
-                            />
+                         
+                         {/* Top Layer: New Page (Incoming) - Flips IN from Left */}
+                         <div className="absolute inset-0 z-20 w-full h-full transform-style-3d animate-flip-in-right origin-left">
+                            {/* Front Face (Content) */}
+                            <div className="absolute inset-0 backface-hidden z-20 bg-book-page rounded-r-lg overflow-hidden">
+                              <QuoteCard 
+                                quote={currentQuote} 
+                                onDelete={handleDelete}
+                                onUpdate={handleUpdate}
+                                variant="book"
+                              />
+                            </div>
+                            {/* Back Face (Texture) */}
+                            <div className="absolute inset-0 backface-hidden z-10 page-back-face rounded-l-lg page-texture" />
                          </div>
                        </>
                     )}
 
-                    {/* NEXT ACTION: Old Page leaves to Left (Top Layer), New page stays behind (Bottom Layer) */}
+                    {/* NEXT ACTION: We are going FORWARDS. */}
+                    {/* Incoming Quote (New) is revealed. Outgoing Quote (Old) flips from Right to Left. */}
                     {direction === 'next' && outgoingQuote && (
                        <>
-                         {/* Bottom Layer: New Page (Incoming) */}
+                         {/* Bottom Layer: New Page (Incoming) - Static, waiting to be revealed */}
                          <div className="absolute inset-0 z-10 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page">
                             <QuoteCard 
                               quote={currentQuote} 
@@ -400,14 +558,20 @@ const App: React.FC = () => {
                               variant="book"
                             />
                          </div>
-                         {/* Top Layer: Old Page (Outgoing) */}
-                         <div className="absolute inset-0 z-20 w-full h-full bg-book-page rounded-r-lg overflow-hidden shadow-page animate-flip-out-left origin-left">
-                            <QuoteCard 
-                              quote={outgoingQuote} 
-                              onDelete={handleDelete}
-                              onUpdate={handleUpdate}
-                              variant="book"
-                            />
+                         
+                         {/* Top Layer: Old Page (Outgoing) - Flips OUT to Left */}
+                         <div className="absolute inset-0 z-20 w-full h-full transform-style-3d animate-flip-out-left origin-left">
+                            {/* Front Face (Content) */}
+                            <div className="absolute inset-0 backface-hidden z-20 bg-book-page rounded-r-lg overflow-hidden">
+                               <QuoteCard 
+                                 quote={outgoingQuote} 
+                                 onDelete={handleDelete}
+                                 onUpdate={handleUpdate}
+                                 variant="book"
+                               />
+                            </div>
+                            {/* Back Face (Texture) */}
+                            <div className="absolute inset-0 backface-hidden z-10 page-back-face rounded-l-lg page-texture" />
                          </div>
                        </>
                     )}
@@ -537,6 +701,29 @@ const App: React.FC = () => {
       {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-800 via-midnight to-midnight" />
       
+      {/* Export Confirmation Modal */}
+      {showExportConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-midnight/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-gold/20 rounded-xl p-6 max-w-sm w-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transform animate-scale-in">
+             <div className="flex items-center gap-3 mb-4 text-gold">
+               <AlertCircle size={24} />
+               <h3 className="font-display text-xl">确认导出</h3>
+             </div>
+             <p className="text-slate-300 mb-6 font-sans leading-relaxed">
+               您确定要将语录集导出为 PDF 文件吗？系统将生成打印预览，请在打印窗口中选择 <strong>"另存为 PDF"</strong>。
+             </p>
+             <div className="flex gap-3 justify-end">
+               <Button variant="ghost" onClick={() => setShowExportConfirm(false)} className="text-sm px-4">
+                 取消
+               </Button>
+               <Button onClick={executePDFExport} className="text-sm px-4">
+                 确认导出
+               </Button>
+             </div>
+          </div>
+        </div>
+      )}
+
       <main className="relative z-10">
         {view === AppView.WRITE && renderWriteView()}
         {view === AppView.BOOK && renderBookView()}
