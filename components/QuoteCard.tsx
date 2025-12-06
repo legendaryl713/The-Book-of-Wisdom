@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Quote } from '../types';
-import { Trash2, Heart, Quote as QuoteIcon, Tag, Plus, X, Share2, Check } from 'lucide-react';
+import { Trash2, Heart, Quote as QuoteIcon, Tag, Plus, X, Share2, Check, Loader2 } from 'lucide-react';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -9,9 +9,275 @@ interface QuoteCardProps {
   variant?: 'card' | 'book';
 }
 
+// Helper to generate a Baroque-style image blob from the quote
+const generateQuoteImage = async (quote: Quote): Promise<Blob | null> => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // Ensure fonts are loaded if possible
+  await document.fonts.ready;
+
+  // Dimensions (4:5 Ratio for mobile/social)
+  const width = 1080;
+  const height = 1350;
+  canvas.width = width;
+  canvas.height = height;
+
+  // --- 1. Background: Antique Parchment with Texture ---
+  
+  // Base Gradient
+  const gradient = ctx.createRadialGradient(width/2, height/2, 200, width/2, height/2, height);
+  gradient.addColorStop(0, '#fffefb');
+  gradient.addColorStop(0.5, '#f7f1e3');
+  gradient.addColorStop(1, '#dccbb1'); // Darker antique edges
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Noise Texture (Old Paper Grain)
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const grain = (Math.random() - 0.5) * 12;
+    data[i] += grain;
+    data[i+1] += grain;
+    data[i+2] += grain;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Subtle Pattern Overlay (Damask-ish dots)
+  ctx.save();
+  ctx.fillStyle = 'rgba(197, 160, 89, 0.08)'; // Very faint gold/brown
+  for(let i=0; i<width; i+=40) {
+    for(let j=0; j<height; j+=40) {
+      if ((i+j) % 80 === 0) {
+        ctx.beginPath();
+        ctx.arc(i, j, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+
+  // --- 2. Metallic Gold Configuration ---
+  const goldGradient = ctx.createLinearGradient(0, 0, width, height);
+  goldGradient.addColorStop(0, '#c5a059');
+  goldGradient.addColorStop(0.2, '#e5c07b'); // Highlight
+  goldGradient.addColorStop(0.5, '#b8860b'); // Shadow
+  goldGradient.addColorStop(0.8, '#e5c07b');
+  goldGradient.addColorStop(1, '#c5a059');
+
+  // Shadow for "Foil" effect
+  ctx.shadowColor = 'rgba(0,0,0,0.2)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  // --- 3. Intricate Border Frames ---
+  const outerMargin = 50;
+  const innerMargin = 75;
+
+  // Outer Heavy Frame
+  ctx.strokeStyle = goldGradient;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(outerMargin, outerMargin, width - outerMargin*2, height - outerMargin*2);
+
+  // Inner Thin Frame
+  ctx.lineWidth = 2;
+  ctx.strokeRect(innerMargin, innerMargin, width - innerMargin*2, height - innerMargin*2);
+  
+  // Reset shadow for detailed work to avoid blurriness
+  ctx.shadowColor = 'transparent';
+
+  // --- 4. Baroque Ornaments ---
+  
+  // Helper: Draw detailed corner flourish
+  const drawFancyCorner = (x: number, y: number, rotation: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.scale(1.5, 1.5); // Make them substantial
+
+    ctx.strokeStyle = goldGradient;
+    ctx.fillStyle = goldGradient;
+    
+    // 1. Corner Bracket (Structural)
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(10, 120);
+    ctx.lineTo(10, 30);
+    ctx.bezierCurveTo(10, 10, 30, 10, 120, 10); // Curve corner
+    ctx.stroke();
+
+    // 2. Inner Scroll (Decorative)
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(25, 100);
+    ctx.bezierCurveTo(25, 50, 50, 25, 100, 25);
+    ctx.stroke();
+
+    // 3. Leaf / Shell Motifs
+    // Top-left corner bead
+    ctx.beginPath();
+    ctx.arc(10, 10, 6, 0, Math.PI*2);
+    ctx.fill();
+
+    // Scroll endings
+    ctx.beginPath();
+    ctx.arc(120, 10, 3, 0, Math.PI*2);
+    ctx.arc(10, 120, 3, 0, Math.PI*2);
+    ctx.fill();
+
+    // Diagonal Flourish
+    ctx.beginPath();
+    ctx.moveTo(15, 15);
+    ctx.quadraticCurveTo(35, 35, 55, 15);
+    ctx.quadraticCurveTo(35, 35, 15, 55);
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  // Draw 4 corners
+  drawFancyCorner(outerMargin, outerMargin, 0);
+  drawFancyCorner(width - outerMargin, outerMargin, 90);
+  drawFancyCorner(width - outerMargin, height - outerMargin, 180);
+  drawFancyCorner(outerMargin, height - outerMargin, 270);
+
+  // Side Center Ornaments (Midpoints)
+  const drawSideOrnament = (x: number, y: number, rotation: number) => {
+     ctx.save();
+     ctx.translate(x, y);
+     ctx.rotate(rotation * Math.PI / 180);
+     
+     ctx.fillStyle = goldGradient;
+     ctx.beginPath();
+     ctx.moveTo(0, 0);
+     ctx.lineTo(10, 15);
+     ctx.lineTo(0, 25);
+     ctx.lineTo(-10, 15);
+     ctx.fill();
+     
+     ctx.restore();
+  };
+
+  drawSideOrnament(width/2, outerMargin, 0); // Top
+  drawSideOrnament(width/2, height - outerMargin, 180); // Bottom
+  drawSideOrnament(outerMargin, height/2, 270); // Left
+  drawSideOrnament(width - outerMargin, height/2, 90); // Right
+
+  // --- 5. Typography & Layout ---
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  const textCenterX = width / 2;
+  const textCenterY = height / 2 - 40; // Shift up slightly to fit everything
+
+  // QUOTE TEXT
+  ctx.fillStyle = '#2d2a2e'; // Deep ink
+  // Priority: Playfair (Serif), then generic serif
+  ctx.font = 'italic 56px "Playfair Display", "Times New Roman", serif'; 
+  
+  const maxTextWidth = width - 300; // Generous padding
+  const lineHeight = 85;
+
+  // Text Wrapping
+  // Detect if primarily Chinese to use character-based splitting
+  const isChinese = /[\u4e00-\u9fa5]/.test(quote.text);
+  const words = isChinese ? quote.text.split('') : quote.text.split(' ');
+  let lines: string[] = [];
+  let currentLine = '';
+
+  for (let n = 0; n < words.length; n++) {
+    const spacer = (isChinese || n === 0) ? '' : ' ';
+    const testLine = currentLine + spacer + words[n];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxTextWidth && n > 0) {
+      lines.push(currentLine);
+      currentLine = words[n];
+    } else {
+      currentLine = testLine;
+    }
+  }
+  lines.push(currentLine);
+
+  // Render Quote Lines
+  const totalTextHeight = lines.length * lineHeight;
+  let startY = textCenterY - (totalTextHeight / 2);
+
+  lines.forEach((line, i) => {
+    // Add subtle shadow to text for print-like quality
+    ctx.shadowColor = 'rgba(0,0,0,0.1)';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(line.trim(), textCenterX, startY + (i * lineHeight));
+  });
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+
+  // DECORATIVE DIVIDER
+  const dividerY = startY + totalTextHeight + 30;
+  
+  ctx.strokeStyle = goldGradient;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  // Left wing
+  ctx.moveTo(textCenterX - 20, dividerY);
+  ctx.bezierCurveTo(textCenterX - 60, dividerY - 10, textCenterX - 100, dividerY + 10, textCenterX - 140, dividerY);
+  // Right wing
+  ctx.moveTo(textCenterX + 20, dividerY);
+  ctx.bezierCurveTo(textCenterX + 60, dividerY - 10, textCenterX + 100, dividerY + 10, textCenterX + 140, dividerY);
+  ctx.stroke();
+
+  // Center diamond
+  ctx.fillStyle = goldGradient;
+  ctx.beginPath();
+  ctx.moveTo(textCenterX, dividerY - 8);
+  ctx.lineTo(textCenterX + 8, dividerY);
+  ctx.lineTo(textCenterX, dividerY + 8);
+  ctx.lineTo(textCenterX - 8, dividerY);
+  ctx.fill();
+
+  // AUTHOR
+  const authorY = dividerY + 70;
+  ctx.font = '700 42px "Cinzel", serif'; // Classic Roman serif look
+  ctx.fillStyle = '#b8860b'; // Dark gold
+  ctx.fillText(`—  ${quote.author}  —`, textCenterX, authorY);
+
+  // DATE
+  const dateStr = new Date(quote.dateAdded).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  ctx.font = '400 26px "Lato", sans-serif';
+  ctx.fillStyle = '#888888';
+  ctx.fillText(dateStr, textCenterX, authorY + 60);
+
+  // WATERMARK
+  const bottomY = height - 80;
+  ctx.font = '700 28px "Cinzel", serif';
+  ctx.fillStyle = 'rgba(197, 160, 89, 0.6)';
+  ctx.fillText("BOOK OF WISDOM", textCenterX, bottomY);
+  
+  ctx.font = '500 18px "Lato", sans-serif';
+  ctx.fillStyle = 'rgba(197, 160, 89, 0.4)';
+  ctx.fillText("Developed by Junzhe", textCenterX, bottomY + 35);
+
+  // Return Blob
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob);
+    }, 'image/png');
+  });
+};
+
 export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onDelete, onUpdate, variant = 'card' }) => {
   const [isTagging, setIsTagging] = useState(false);
   const [newTag, setNewTag] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   const toggleFavorite = () => {
@@ -33,27 +299,45 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onDelete, onUpdate,
   };
 
   const handleShare = async () => {
-    const shareText = `"${quote.text}" — ${quote.author}`;
-    
-    // Check if Web Share API is available
-    if (navigator.share) {
-      try {
+    if (isSharing) return;
+    setIsSharing(true);
+
+    try {
+      const imageBlob = await generateQuoteImage(quote);
+      if (!imageBlob) throw new Error("Failed to generate image");
+
+      const file = new File([imageBlob], 'wisdom_card.png', { type: 'image/png' });
+
+      // Try native sharing first
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: '智慧之书',
-          text: shareText,
+          files: [file],
+          title: '智慧之书语录',
         });
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
-    } else {
-      // Fallback to Clipboard
-      try {
-        await navigator.clipboard.writeText(shareText);
+      } else {
+        // Fallback: Download the image
+        const url = URL.createObjectURL(imageBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wisdom_quote_${quote.id}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show copied/success feedback
         setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
-      } catch (err) {
-        console.error('Failed to copy:', err);
+        setTimeout(() => setIsCopied(false), 2000);
       }
+    } catch (error) {
+      console.error("Share failed:", error);
+      // Fallback to text copy if image fails
+      const text = `"${quote.text}" — ${quote.author}`;
+      navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -128,10 +412,17 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, onDelete, onUpdate,
                   {/* Share Button */}
                   <button 
                     onClick={handleShare}
+                    disabled={isSharing}
                     className={`p-2 rounded-full transition-colors ${isCopied ? 'text-green-500 bg-green-500/10' : 'text-slate-400 dark:text-slate-500 hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    title="分享"
+                    title="分享图片"
                   >
-                    {isCopied ? <Check size={18} /> : <Share2 size={18} />}
+                    {isSharing ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : isCopied ? (
+                      <Check size={18} />
+                    ) : (
+                      <Share2 size={18} />
+                    )}
                   </button>
 
                   <button 

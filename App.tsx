@@ -237,15 +237,63 @@ const App: React.FC = () => {
       <html>
       <head>
         <title>智慧之书语录导出 - ${today}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap');
           body {
             font-family: "Songti SC", "Noto Serif SC", serif;
             padding: 40px;
+            padding-top: 80px; /* Space for fixed header */
             color: #1a1a1a;
             max-width: 800px;
             margin: 0 auto;
+            background-color: #fdfbf7;
           }
+          
+          /* Screen Only Styles */
+          @media screen {
+            .navbar {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 60px;
+              background-color: #2d2a2e;
+              color: #c5a059;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+              z-index: 1000;
+              box-sizing: border-box;
+            }
+            .navbar-title {
+              font-weight: bold;
+              font-size: 16px;
+            }
+            .close-btn {
+              background-color: #c5a059;
+              color: #2d2a2e;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+              font-size: 14px;
+              transition: background 0.2s;
+            }
+            .close-btn:hover {
+              background-color: #dcb873;
+            }
+          }
+
+          /* Print Only Styles */
+          @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; background-color: white; }
+          }
+
           .header {
             text-align: center;
             border-bottom: 2px solid #c5a059;
@@ -312,6 +360,12 @@ const App: React.FC = () => {
         </style>
       </head>
       <body>
+        
+        <div class="navbar no-print">
+          <div class="navbar-title">PDF 预览 / PDF Preview</div>
+          <button class="close-btn" onclick="window.close()">关闭 / Return to App</button>
+        </div>
+        
         <div class="header">
           <h1>智慧之书</h1>
           <p>导出日期: ${today} | 共 ${quotes.length} 条珍藏</p>
@@ -339,8 +393,11 @@ const App: React.FC = () => {
         </div>
 
         <script>
+          // Auto print after a short delay
           window.onload = function() {
-            window.print();
+            setTimeout(function() {
+              window.print();
+            }, 800);
           }
         </script>
       </body>
